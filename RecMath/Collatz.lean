@@ -37,8 +37,7 @@ def step.continuous : Continuous step where
 theorem step.minimalPeriod_one : step.minimalPeriod 1 = 3 := by
   apply Function.minimalPeriod_eq_prime <;> decide
 
-theorem step.one_had_period_3 : step.IsPeriodicPt 3 1 := by
-  decide
+theorem step.one_had_period_3 : step.IsPeriodicPt 3 1 := by decide
 
 theorem step.isPeriodicPt_one : 1 ∈ step.periodicPts := by
   rw [Function.mem_periodicPts]
@@ -96,7 +95,7 @@ def GoesTo.flow : Flow ℕ ℕ :=
 theorem GoesTo.even_path : (n * 2) |=> n := ⟨1, by simp [step]⟩
 
 
-theorem GoesTo.odd_path: n ≡ 4 [MOD 6] -> (n - 1) / 3 |=> n := by
+theorem GoesTo.odd_path : n ≡ 4 [MOD 6] -> (n - 1) / 3 |=> n := by
   intro hm
   have : ¬Even ((n-1)/3) := by
     apply Nat.not_even_iff_odd.mpr
@@ -109,15 +108,13 @@ theorem GoesTo.odd_path: n ≡ 4 [MOD 6] -> (n - 1) / 3 |=> n := by
         rw [Nat.add_one]
         simpa
       calc (Nat.succ k - 1) / 3 % 2
-        _ = k / 3 % 2 := by simp
-        _ = k % 6 / 3 := by
-          -- rw [Nat.div_mod_eq_mod_mul_div] -- This theorem is gone now :/
-          sorry
+        _ = k / 3 % 2 := by omega
+        _ = k % 6 / 3 := by omega
         _ = 3 % 6 / 3 := by rw [hm']
         _ = 1 := by norm_num
   have onelen : 1 ≤ n := by
     calc
-      _ ≤ 4 := by simp
+      _ ≤ 4 := by decide
       _ = 4 % 6 := by decide
       _ = n % 6 := by rw [hm]
       _ ≤ n := Nat.mod_le n 6
@@ -126,19 +123,17 @@ theorem GoesTo.odd_path: n ≡ 4 [MOD 6] -> (n - 1) / 3 |=> n := by
     rw [Nat.ModEq.comm] at hm
     apply Nat.ModEq.of_dvd ((by decide): 3 ∣ 6) hm
   use 1
-  rw [Function.iterate_one, step, if_neg this, Nat.mul_div_cancel' three_dvd_n_sub_one, Nat.sub_add_cancel onelen]
+  rw [Function.iterate_one, step, if_neg this,
+    Nat.mul_div_cancel' three_dvd_n_sub_one, Nat.sub_add_cancel onelen]
 
-theorem GoesTo.even_family : ∀k, (n * 2^k) |=> n := by sorry
-
--- -- Complains that this does not terminate
--- theorem GoesTo.even_family : ∀k, (n * 2^k) |=> n := by
---   rintro (_ | i)
---   · simp; rfl
---   · calc n * 2 ^ Nat.succ i
---       _ = n * 2 ^ i * 2 := by rw [Nat.pow_succ, <- mul_assoc]
---       _ |=> n * 2 ^ i := even_path
---       _ |=> _ := by
---         apply even_family _
+theorem GoesTo.even_family : ∀k, (n * 2^k) |=> n := by
+  intro k
+  induction' k with i hi
+  · rw [pow_zero, mul_one]
+  · calc n * 2 ^ Nat.succ i
+      _ = n * 2 ^ i * 2 := by rw [Nat.pow_succ, <- mul_assoc]
+      _ |=> n * 2 ^ i := even_path
+      _ |=> n := hi
 
 theorem GoesTo.odd_family : n ≡ 1 [MOD 6] -> ∀k, (n * 2^(2*k+2) - 1)/3 |=> n := by
   intro hn k
