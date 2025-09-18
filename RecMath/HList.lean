@@ -248,9 +248,6 @@ end Algebra
 --   ∀ ⦃S : List (Type u)⦄, HList (params ++ S) -> HList (results ++ S)
 -- end Func
 
-
-
-
 section ToStrings
 
 class ToStrings (α : Type u) where
@@ -264,7 +261,6 @@ instance {α β} [Repr α] [ToStrings (HList β)] : ToStrings (HList (α :: β))
   | head ; tail => (toString (Repr.reprPrec head 100)) :: (ToStrings.toStrings tail)
 
 instance HList.instToString {T} [ToStrings (HList T)] : ToString (HList T) where
-  toString stack :=
-    "[" ++ " ".intercalate (ToStrings.toStrings stack) ++ "]"
+  toString stack := "[" ++ " ".intercalate (ToStrings.toStrings stack) ++ "]"
 
 end ToStrings
