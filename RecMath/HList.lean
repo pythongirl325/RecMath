@@ -11,9 +11,12 @@ inductive HList.{u} : List (Type u) -> Type (u + 1) where
   | nil : HList []
   | cons {α β}: α -> HList β -> HList (α :: β)
 
-
-
 infixr:67 "; " => HList.cons
+
+-- -- I want to try constructing a dependent HList
+-- inductive DHList.{u} : List (Type u) -> Type u where
+--   | cons {α β}: (x: α) -> HList x
+
 
 universe u
 variable {A B : Type u} {α α' β β' γ : List (Type u)} {a : HList α} {b : HList β} {g : HList γ}
@@ -42,6 +45,7 @@ def HList.cast (a : HList α) (h : α = β) : HList β := h ▸ a
 -- This theorem lets me change between eq cast and heq easily
 theorem HList.eq_cast_iff_heq {h : β = α} : a = b.cast h <-> a ≍ b := by
   -- grind only [<- cast_rfl, cases Or]
+
   subst_vars; rw [heq_iff_eq]; rfl
 
 -- theorem HList.cast_heq : a.cast rfl ≍ a := by
@@ -125,9 +129,7 @@ theorem HList.sigma_ext {a b : Sigma HList}
   rw [<- eq_cast_iff_heq, h']
 
 @[simp]
-theorem HList.nil_inst (a : HList []) : a = nil := by
-  -- grind only [cases HList]
-  cases a with | nil => rfl
+theorem HList.nil_inst (a : HList []) : a = nil := by cases a with | nil => rfl
 
 @[grind →]
 theorem HList.append_right_cancel {a b : HList α} {c : HList β}
@@ -147,16 +149,16 @@ section Algebra
 
 instance HList.Sigma.instZero : Zero (Sigma HList) where zero := ⟨[], HList.nil⟩
 
+def HList.Sigma.append (a b : Sigma HList) : Sigma HList :=
+  ⟨a.fst ++ b.fst, a.snd ++ b.snd⟩
+
+instance HList.Sigma.instAdd : Add (Sigma HList) where add := HList.Sigma.append
+
 @[simp, grind =]
 theorem HList.Sigma.zero_fst : (0 : Sigma HList).fst = [] := rfl
 
 @[simp, grind =]
 theorem HList.Sigma.zero_snd : (0 : Sigma HList).snd = HList.nil := rfl
-
-def HList.Sigma.append (a b : Sigma HList) : Sigma HList :=
-  ⟨a.fst ++ b.fst, a.snd ++ b.snd⟩
-
-instance HList.Sigma.instAdd : Add (Sigma HList) where add := HList.Sigma.append
 
 @[simp, grind =]
 theorem HList.Sigma.add_fst (a b : Sigma HList) : (a + b).fst = a.fst ++ b.fst := rfl
@@ -164,24 +166,42 @@ theorem HList.Sigma.add_fst (a b : Sigma HList) : (a + b).fst = a.fst ++ b.fst :
 @[simp, grind =]
 theorem HList.Sigma.add_snd (a b : Sigma HList) : (a + b).snd = a.snd ++ b.snd := rfl
 
-instance HList.Sigma.instAddZeroClass : AddZeroClass (Sigma HList) where
+instance HList.Sigma.instAddMonoid : AddMonoid (Sigma HList) where
   zero_add := by rintro a; rfl
   add_zero a := by ext1 <;> simp!
     -- ext1
     -- · rw [add_fst, zero_fst, List.append_nil]
     -- · rw [add_snd, zero_snd, append_nil]
-
-instance HList.Sigma.instAddSemigroup : AddSemigroup (Sigma HList) where
-  add_assoc a b c := by ext1 <;> simp!
+  add_assoc a b c := by ext1 <;> simp! only [add_fst, add_snd, List.append_assoc, append_assoc]
     -- grind only [sigma_ext, = add_fst, = add_snd, = append_assoc, =_ List.append_assoc]
     -- ext1
     -- · simp! only [add_fst, List.append_assoc]
     -- · simp! only [add_fst, add_snd, append_assoc]
-
-instance HList.Sigma.instAddMonoid : AddMonoid (Sigma HList) where
   nsmul := nsmulRec
   nsmul_zero _ := rfl
   nsmul_succ _ _ := rfl
+
+instance HList.Sigma.instAddCancelMonoid : AddCancelMonoid (Sigma HList) where
+  add_left_cancel := by
+    intro a b c h
+    injection h with fst_eq snd_eq
+    ext1
+    · rw [List.append_cancel_left fst_eq]
+    · apply append_left_cancel (a := a.snd)
+      rwa [← cast, append_cast, cast_cast, eq_cast_iff_heq]
+  add_right_cancel := by
+    intro a b c h
+    injection h with fst_eq snd_eq
+    ext1
+    · rw [List.append_cancel_right fst_eq]
+    · apply append_right_cancel (c := a.snd)
+      rwa [← cast, cast_append, cast_cast, eq_cast_iff_heq]
+    -- grind? only [= IsAddRightRegular, = Function.Injective, -> sigma_ext,
+    --   -> List.append_cancel_right, -> append_right_cancel, = cast_rfl, = add_fst, = add_snd]
+
+instance HList.Sigma.instMulAction : MulAction Nat (Sigma HList) where
+  one_smul b := by rw [one_nsmul]
+  mul_smul x y b := by rw [mul_comm, mul_nsmul]
 
 @[simp, grind =]
 theorem HList.Sigma.nsmul_fst {n} (a : Sigma HList) :
@@ -194,36 +214,6 @@ theorem HList.Sigma.nsmul_fst {n} (a : Sigma HList) :
 -- -- TODO: Implement a `HList.repeat (n : Nat) (a : HList α) : HList (List.replicate n α).flatten`
 -- @[simp]
 -- theorem HList.Sigma.nsmul_snd {n} (a : Sigma HList) : (n • a).snd = a.snd
-
-instance HList.Sigma.instAddLeftCancelMonoid : AddLeftCancelMonoid (Sigma HList) where
-  add_left_cancel := by
-    -- intro a; rw [IsAddLeftRegular, Function.Injective]
-    intro a b c h
-    injection h with fst_eq snd_eq
-    ext1
-    · rw [List.append_cancel_left fst_eq]
-    · apply append_left_cancel (a := a.snd)
-      rw [<- cast, append_cast, cast_cast, eq_cast_iff_heq]
-      exact snd_eq
-
-instance HList.Sigma.instAddRightCancelMonoid : AddRightCancelMonoid (Sigma HList) where
-  add_right_cancel := by
-    -- intro a; rw [IsAddRightRegular, Function.Injective]
-    intro a b c h
-    injection h with fst_eq snd_eq
-    ext1
-    · rw [List.append_cancel_right fst_eq]
-    · apply append_right_cancel (c := a.snd)
-      rw [<- cast, cast_append, cast_cast, eq_cast_iff_heq]
-      exact snd_eq
-    -- grind? only [= IsAddRightRegular, = Function.Injective, -> sigma_ext,
-    --   -> List.append_cancel_right, -> append_right_cancel, = cast_rfl, = add_fst, = add_snd]
-
-instance HList.Sigma.instAddCancelMonoid : AddCancelMonoid (Sigma HList) where
-
-instance HList.Sigma.instMulAction : MulAction Nat (Sigma HList) where
-  one_smul b := by rw [one_nsmul]
-  mul_smul x y b := by rw [mul_comm, mul_nsmul]
 
 -- -- I dont think i actually need this instance. It should be possible, but probably not useful.
 -- instance HList.Sigma.instIsAddTorsionFree : IsAddTorsionFree (Sigma HList) where
