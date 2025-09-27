@@ -12,8 +12,6 @@ variable {α : Type u} [LinearOrder α] {n : Nat}
 
 def Tuple (α n) := Fin n -> α
 
-
-
 -- Not using these anymore, but i can change my definitoins to use them if wanted
 -- def Sorted (t : Tuple α n) : Prop := Monotone t
 -- def SortingFunction (f : Tuple α n -> Tuple α n) : Prop := ∀ (t : Tuple α n), Sorted (f t)
@@ -34,30 +32,6 @@ instance : Unique (IndexPair 2) where
   default := IndexPair.mk 0 1 (by decide)
   uniq := by grind only [cases IndexPair]
 
-
-def IndexPair.permute (p : IndexPair n) (t : Tuple α n) (k : Fin n) : Fin n :=
-  let (a, b) := (t p.i, t p.j)
-  if k = p.i then
-    if a ≤ b then p.i else p.j
-  else if k = p.j then
-    if a ≤ b then p.j else p.i
-  else
-    k
-
-theorem IndexPair.permute.involutive {p : IndexPair n} {t : Tuple α n}
-    : Function.Involutive (p.permute t) := by
-  grind only [Function.Involutive, permute]
-
--- def IndexPair.toPerm (t : Tuple α n) (p : IndexPair n) : Equiv.Perm (Fin n) where
---   toFun := p.permute t
---   invFun := p.permute t
---   left_inv k := by
---     change (p.permute t ∘ p.permute t) k = k
---     rw [Function.Involutive.comp_self IndexPair.permute.involutive, id]
---   right_inv k := by
---     change (p.permute t ∘ p.permute t) k = k
---     rw [Function.Involutive.comp_self IndexPair.permute.involutive, id]
-
 def IndexPair.toPerm (t : Tuple α n) (p : IndexPair n) : Equiv.Perm (Fin n) :=
   if t p.i ≤ t p.j then
     1
@@ -67,8 +41,8 @@ def IndexPair.toPerm (t : Tuple α n) (p : IndexPair n) : Equiv.Perm (Fin n) :=
 def IndexPair.apply (p : IndexPair n) (t : Tuple α n) : Tuple α n := t ∘ p.toPerm t
 
 -- I dont know what to call this lemma, it needs a better name
-theorem IndexPair.apply.asdf (p : IndexPair n) (t : Tuple α n)
-    : p.apply t p.i ≤ p.apply t p.j := by
+theorem IndexPair.apply_i_le_apply_j {p : IndexPair n} {t : Tuple α n} :
+    p.apply t p.i ≤ p.apply t p.j := by
   obtain ⟨i, j, hp⟩ := p
   simp [apply, Function.comp, toPerm]
   split
@@ -77,7 +51,7 @@ theorem IndexPair.apply.asdf (p : IndexPair n) (t : Tuple α n)
     simp only [Equiv.swap_apply_left, Equiv.swap_apply_right]
     exact le_of_not_ge h
 
-theorem IndexPair.apply.monotoneOn_ij (p : IndexPair n) (t : Tuple α n) :
+theorem IndexPair.apply.monotoneOn_ij {p : IndexPair n} {t : Tuple α n} :
     MonotoneOn (p.apply t) {p.i, p.j} := by
   intro a ha b hb a_le_b
   by_cases a_eq_b : a = b
@@ -85,7 +59,7 @@ theorem IndexPair.apply.monotoneOn_ij (p : IndexPair n) (t : Tuple α n) :
   have ⟨i_eq_a, j_eq_b⟩: p.i = a ∧ p.j = b := by
     grind only [= Set.mem_singleton_iff, = Set.mem_insert_iff, IndexPair]
   subst i_eq_a j_eq_b
-  exact asdf p t
+  exact apply_i_le_apply_j
 
 def ComparisonNetwork (n : Nat) := List (IndexPair n)
 
@@ -103,7 +77,7 @@ theorem ComparisonNetwork.apply_eq_foldr_apply (net : ComparisonNetwork n) (t : 
     net.apply t = net.foldr IndexPair.apply t := by
   rw [apply, toPerm]
   induction net with
-  | nil => rw [List.foldr, Equiv.Perm.coe_one, CompTriple.comp_eq, List.foldr]
+  | nil => rw [List.foldr, Equiv.Perm.coe_one, Function.comp_id, List.foldr]
   | cons p net h =>
     rw [List.foldr_cons, List.foldr_cons, <- h, IndexPair.apply]
     rw [Equiv.coe_trans, Function.comp_assoc]
@@ -117,17 +91,12 @@ def ComparisonNetwork.Sorts (net : ComparisonNetwork n) : Prop :=
 def ComparisonNetwork.trivial_network : ComparisonNetwork 2 := [IndexPair.mk 0 1 (by decide)]
 
 theorem ComparisonNetwork.trivial_network_sorts : trivial_network.Sorts := by
-  intro α _ t a b a_le_b
-  simp [trivial_network, apply, toPerm, IndexPair.toPerm]
-  by_cases a_eq_b : a = b
-  · subst_vars; rfl
-  split
-  · simp
-    grind only
-  · have ⟨a0, b1⟩ : a = 0 ∧ b = 1 := by omega
-    subst a0 b1
-    simp
-    order
+  intro α _ t
+  have fin_2_set_univ : Set.univ (α := Fin 2) = {0, 1} := by
+    grind only [= Set.mem_singleton_iff, Set.mem_univ, = Set.mem_insert_iff]
+  rw [<- monotoneOn_univ, fin_2_set_univ]
+  rw [trivial_network, apply_eq_foldr_apply, List.foldr, List.foldr_nil]
+  exact IndexPair.apply.monotoneOn_ij
 
 #eval ComparisonNetwork.trivial_network.apply ![3, 2]
 #eval ComparisonNetwork.trivial_network.apply ![1, 2]
