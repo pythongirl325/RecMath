@@ -44,11 +44,11 @@ def IndexPair.apply (p : IndexPair n) (t : Tuple α n) : Tuple α n := t ∘ p.t
 theorem IndexPair.apply_i_le_apply_j {p : IndexPair n} {t : Tuple α n} :
     p.apply t p.i ≤ p.apply t p.j := by
   obtain ⟨i, j, hp⟩ := p
-  simp [apply, Function.comp, toPerm]
+  simp only [apply, Function.comp, toPerm]
   split
   · simpa! only [Equiv.refl_apply]
   · rename_i h
-    simp only [Equiv.swap_apply_left, Equiv.swap_apply_right]
+    rw [Equiv.swap_apply_left, Equiv.swap_apply_right]
     exact le_of_not_ge h
 
 theorem IndexPair.apply.monotoneOn_ij {p : IndexPair n} {t : Tuple α n} :
@@ -60,6 +60,9 @@ theorem IndexPair.apply.monotoneOn_ij {p : IndexPair n} {t : Tuple α n} :
     grind only [= Set.mem_singleton_iff, = Set.mem_insert_iff, IndexPair]
   subst i_eq_a j_eq_b
   exact apply_i_le_apply_j
+  -- simp only [apply, toPerm, Function.comp]
+  -- grind only [= Equiv.Perm.one_apply, = Equiv.swap_apply_left,
+  --   = Equiv.swap_apply_right, le_of_not_ge]
 
 def ComparisonNetwork (n : Nat) := List (IndexPair n)
 
