@@ -426,7 +426,7 @@ example (net₁ net₂ : ComparisonNetwork n) : net₁.Sorts ∧ net₂.Sorts ->
 --     funext and cases on the equiv)
 --
 -- Sorting algorithms:
--- [-] Bubble sort (implemented by unproven)
+-- [-] Bubble sort (implemented but unproven)
 -- [ ] Insertion sort
 -- [ ] Shell sort
 -- [ ] Batcher's odd-even merge sort
