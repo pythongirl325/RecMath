@@ -61,7 +61,7 @@ theorem IndexPair.apply_j_eq_max {p : IndexPair n} {t : Tuple α n} :
   rewrite [apply, toPerm]
   grind only [= Equiv.Perm.one_apply, = Equiv.swap_apply_right, = max_def]
 
-@[grind <-]
+@[grind ←]
 theorem IndexPair.apply_i_le_apply_j {p : IndexPair n} {t : Tuple α n} :
     p.apply t p.i ≤ p.apply t p.j := by
   simp! only [apply_i_eq_min, apply_j_eq_max, le_sup_iff, inf_le_left, inf_le_right, or_self]
@@ -71,13 +71,20 @@ theorem IndexPair.apply.monotoneOn_ij {p : IndexPair n} {t : Tuple α n} :
   intro a ha b hb a_le_b
   by_cases a_eq_b : a = b
   { subst a_eq_b; rfl }
+  -- grind only [= apply_i_eq_min, = Set.mem_singleton_iff, = apply_j_eq_max, = Set.subset_def,
+  --   = Set.singleton_subset_iff, ← apply_i_le_apply_j, Set.subset_insert, = Set.mem_insert_iff,
+  --   cases IndexPair, cases Or]
   have ⟨i_eq_a, j_eq_b⟩: p.i = a ∧ p.j = b := by
     grind only [= Set.mem_singleton_iff, = Set.mem_insert_iff, IndexPair]
   subst i_eq_a j_eq_b
   exact apply_i_le_apply_j
-  -- simp only [apply, toPerm, Function.comp]
-  -- grind only [= Equiv.Perm.one_apply, = Equiv.swap_apply_left,
-  --   = Equiv.swap_apply_right, le_of_not_ge]
+
+@[simp, grind =]
+theorem IndexPair.apply_of_ne_of_ne {p : IndexPair n} {t : Tuple α n} {x : Fin n} :
+    x ≠ p.i -> x ≠ p.j -> p.apply t x = t x := by
+  intro x_ne_i x_ne_j
+  dsimp [apply, toPerm]
+  grind only [= Equiv.swap_apply_def, = Equiv.Perm.one_apply]
 
 def ComparisonNetwork (n : Nat) := List (IndexPair n)
 
@@ -92,7 +99,6 @@ def ComparisonNetwork.toPerm (t : Tuple α n) (net : ComparisonNetwork n) : Equi
 
 def ComparisonNetwork.apply (net : ComparisonNetwork n) (t : Tuple α n) : Tuple α n :=
   t ∘ net.toPerm t
-
 
 -- This proof ensures that the ComparisonNetwork.toPerm implementation is correct
 @[grind _=_]
@@ -241,18 +247,11 @@ attribute [grind] Equiv.injective Equiv.surjective Equiv.bijective
 attribute [grind =] Equiv.Perm.one_apply Equiv.swap_apply_left Equiv.swap_apply_right
 attribute [grind ←] Equiv.swap_apply_of_ne_of_ne
 -- attribute [grind →] ne_of_lt
+attribute [grind] Monotone.map_max Monotone.map_min
 
 section ZeroOnePrinciple
 
--- TODO: bad name
-@[grind <-]
-theorem IndexPair.apply_eq_self {p : IndexPair n} {t : Tuple α n} {x : Fin n} :
-    x ≠ p.i ∧ x ≠ p.j -> p.apply t x = t x := by
-  rintro ⟨x_ne_i, x_ne_j⟩
-  rw [apply, toPerm]
-  grind only [Equiv.swap_apply_def, = Equiv.Perm.one_apply]
-
--- Should these grind annotations be replaced by a different grind option?
+-- These two lemmas are from the wikipedia proof. I can probably get rid of them
 @[grind]
 theorem IndexPair.apply_i_eq_min_mono {p : IndexPair n} {t : Tuple α n} {f : α -> β}
     (hf : Monotone f) : f (p.apply t p.i) = min (f (t p.i)) (f (t p.j)) := by
@@ -268,8 +267,8 @@ theorem IndexPair.monotone_comp {p : IndexPair n} {a : Tuple α n} {f : α -> β
     p.apply (f ∘ a) = f ∘ (p.apply a) := by
   funext k
   by_cases k = p.i ∨ k = p.j <;>
-  grind only [apply_i_eq_min_mono, = apply_i_eq_min, apply_j_eq_max_mono, = apply_j_eq_max,
-    cases Or, ← apply_eq_self]
+  grind only [Monotone.map_min, Monotone.map_max, = apply_i_eq_min, = apply_j_eq_max,
+    cases Or, = apply_of_ne_of_ne]
 
 -- Lemme 28.1 in Introduction to algorithms 1e
 -- Should probably rename this theorem too
