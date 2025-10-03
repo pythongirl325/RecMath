@@ -297,16 +297,26 @@ theorem Equiv.Perm.strictmono_of_monotone {α} [PartialOrder α] {p : Equiv.Perm
   have : p i ≠ p j := Function.Injective.ne (Equiv.injective _) (by order)
   order
 
-theorem monotone_perm_eq_one {n : Nat} {p : Equiv.Perm (Fin (n + 1))} (h : Monotone p) : p = 1 := by
-  unfold Monotone at h
-  contrapose! h
+def extend_fin.equiv {n : Nat} : Fin n ≃ {x : Fin (n + 1) // x < n } where
+  toFun x := Subtype.mk (Fin.mk x.val (by omega)) (by bound)
+  invFun x := Fin.mk x.val.val x.prop
+  left_inv _ := rfl
+  right_inv _ := rfl
 
-  sorry
+theorem monotone_perm_eq_one {n : Nat} {p : Equiv.Perm (Fin n)} (h : Monotone p) : p = 1 := by
+  unfold Monotone at h
+  -- Induct and try to transfer proofs using MonotoneOn then expand the set
+  induction n with
+  | zero => exact Subsingleton.allEq p 1
+  | succ n h =>
+    change p = Equiv.refl _
+    rw [<- Equiv.Perm.extendDomain_refl extend_fin.equiv]
+    sorry
 
 -- The basic idea that if a comparison network can sort all permuataions, then it can sort anything
 -- I see it as a weaker form of the zero-one principle
 theorem ComparisonNetwork.permutation_test (net : ComparisonNetwork n) :
-  (∀ (p : Equiv.Perm (Fin n)), Monotone (net.apply ⇑p)) -> net.Sorts := by
+    (∀ (p : Equiv.Perm (Fin n)), Monotone (net.apply ⇑p)) -> net.Sorts := by
   intro h α inst a i j i_le_j
 
   -- i dont know if this approach will actually work
@@ -339,8 +349,25 @@ theorem ComparisonNetwork.zero_one_principle (net : ComparisonNetwork n) :
   let f : α -> Bool := (a i < ·)
   have fmono : Monotone f := by
     grind only [= Monotone, = Bool.le_iff_imp, = decide_eq_true, -> lt_of_lt_of_le]
-  have : (f ∘ net.apply a) = net.apply (f ∘ a) := by
-    rw [monotone_comp fmono]
+  have fswap := monotone_iff_forall_lt.mp fmono bad_swap
+  have : f ∘ net.apply a = net.apply (f ∘ a) := by
+    simp [monotone_comp fmono]
+
+  use f ∘ a
+  dsimp [Monotone]
+  push_neg
+  use i, j
+  constructor
+  · order
+  simp [<- this]
+
+  have : f (net.apply a j) ≠ f (net.apply a i) := by
+    unfold f
+    simp
+    push_neg
+    simp [f, Bool.le_iff_imp] at fswap
+
+  order
 
   -- have : f (a j) = true := by
   --   unfold f
@@ -354,21 +381,6 @@ theorem ComparisonNetwork.zero_one_principle (net : ComparisonNetwork n) :
   --   exact bh
 
   -- sorry
-
-  use f ∘ a
-  rw [monotone_comp fmono]
-
-  unfold Monotone
-  push_neg
-  use i, j
-  constructor
-  · exact i_le_j
-  simp only [Function.comp_apply]
-
-  have := monotone_iff_forall_lt.mp fmono bad_swap
-  -- have : f (net.apply a j) ≠ f (net.apply a i) := by sorry
-
-  -- order
 
   sorry
 
