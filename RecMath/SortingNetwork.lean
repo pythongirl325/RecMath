@@ -12,6 +12,38 @@ variable {α : Type u} [LinearOrder α] {β : Type v} [LinearOrder β] {n : Nat}
 
 def Tuple (α n) := Fin n -> α
 
+def Tuple.ofVector : Vector α n -> Tuple α n := Vector.get
+def Tuple.toVector : Tuple α n -> Vector α n := Vector.ofFn
+
+def Tuple.equivVector : Tuple α n ≃ Vector α n where
+  toFun := Tuple.toVector
+  invFun := Tuple.ofVector
+  left_inv t := by funext i; exact Vector.get_ofFn t i
+  right_inv v := by
+    apply Function.rightInverse_of_injective_of_leftInverse
+    · intro a b h
+      unfold Tuple.ofVector at h
+      ext i hi
+      let fi := Fin.mk i hi
+      rw [<- Vector.get_eq_getElem a fi, <- Vector.get_eq_getElem b fi, h]
+    · intro t
+      funext i
+      exact Vector.get_ofFn t i
+
+def Tuple.ofBitVec : BitVec n -> Tuple Bool n := BitVec.getLsb
+def Tuple.toBitVec : Tuple Bool n -> BitVec n := BitVec.ofFnLE
+
+def Tuple.equivBitVec : Tuple Bool n ≃ BitVec n where
+  toFun := Tuple.toBitVec
+  invFun := Tuple.ofBitVec
+  left_inv t := by
+    funext i
+    exact BitVec.getLsb_ofFnLE t i
+  right_inv bv := by
+    unfold ofBitVec
+    unfold toBitVec
+    grind only [= BitVec.getLsb_eq_getElem, = BitVec.getElem_ofFnLE, = Fin.getElem_fin]
+
 -- Not using these anymore, but i can change my definitoins to use them if wanted
 -- def Sorted (t : Tuple α n) : Prop := Monotone t
 -- def SortingFunction (f : Tuple α n -> Tuple α n) : Prop := ∀ (t : Tuple α n), Sorted (f t)
@@ -49,6 +81,15 @@ def IndexPair.toPerm (t : Tuple α n) (p : IndexPair n) : Equiv.Perm (Fin n) :=
 def IndexPair.apply (p : IndexPair n) (t : Tuple α n) : Tuple α n :=
   t ∘ p.toPerm t
 
+def IndexPair.vector_apply (p : IndexPair n) (v : Vector α n) : Vector α n :=
+  if v.get p.i ≤ v.get p.j then
+    v
+  else
+    v.swap p.i p.j
+
+example (p : IndexPair n) (v : Vector α n) : p.vector_apply v = Tuple.toVector (p.apply (Tuple.ofVector v)) := by
+  sorry
+
 @[simp, grind =]
 theorem IndexPair.apply_i_eq_min {p : IndexPair n} {t : Tuple α n} :
     p.apply t p.i = min (t p.i) (t p.j) := by
@@ -79,7 +120,7 @@ theorem IndexPair.apply.monotoneOn_ij {p : IndexPair n} {t : Tuple α n} :
   subst i_eq_a j_eq_b
   exact apply_i_le_apply_j
 
-@[simp, grind =]
+@[grind =]
 theorem IndexPair.apply_of_ne_of_ne {p : IndexPair n} {t : Tuple α n} {x : Fin n} :
     x ≠ p.i -> x ≠ p.j -> p.apply t x = t x := by
   intro x_ne_i x_ne_j
@@ -177,8 +218,6 @@ def ComparisonNetwork.upgrade.sortsOn_old {net : ComparisonNetwork n} {skip : Fi
   specialize @h α inst
   conv at h => intro t; rw [<- monotoneOn_univ]
   let := Fin.succAboveEmb skip
-
-
 
   intro a ha b hb a_le_b
   rw [Set.mem_setOf_eq] at ha hb
@@ -303,12 +342,13 @@ def extend_fin.equiv {n : Nat} : Fin n ≃ {x : Fin (n + 1) // x < n } where
   left_inv _ := rfl
   right_inv _ := rfl
 
-theorem monotone_perm_eq_one {n : Nat} {p : Equiv.Perm (Fin n)} (h : Monotone p) : p = 1 := by
-  unfold Monotone at h
+theorem monotone_perm_eq_one {n : Nat} {p : Equiv.Perm (Fin n)} (mono : Monotone p) : p = 1 := by
+  -- unfold Monotone at mono
   -- Induct and try to transfer proofs using MonotoneOn then expand the set
   induction n with
   | zero => exact Subsingleton.allEq p 1
   | succ n h =>
+    specialize @h 1
     change p = Equiv.refl _
     rw [<- Equiv.Perm.extendDomain_refl extend_fin.equiv]
     sorry
@@ -366,6 +406,7 @@ theorem ComparisonNetwork.zero_one_principle (net : ComparisonNetwork n) :
     simp
     push_neg
     simp [f, Bool.le_iff_imp] at fswap
+    sorry
 
   order
 
@@ -382,7 +423,6 @@ theorem ComparisonNetwork.zero_one_principle (net : ComparisonNetwork n) :
 
   -- sorry
 
-  sorry
 
 -- Using the zero-one principle i could implement Decidable ComparisonNetwork.Sorts
 -- in O(2ⁿ) instead of O(n!).
