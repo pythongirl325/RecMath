@@ -82,13 +82,16 @@ def IndexPair.apply (p : IndexPair n) (t : Tuple α n) : Tuple α n :=
   t ∘ p.toPerm t
 
 def IndexPair.vector_apply (p : IndexPair n) (v : Vector α n) : Vector α n :=
-  if v.get p.i ≤ v.get p.j then
-    v
-  else
-    v.swap p.i p.j
+  if v.get p.i ≤ v.get p.j then v else v.swap p.i p.j
 
-example (p : IndexPair n) (v : Vector α n) : p.vector_apply v = Tuple.toVector (p.apply (Tuple.ofVector v)) := by
-  sorry
+-- This proves that IndexPair.vector_apply is equal to IndexPair.apply under equivalence between
+-- vectors and tuples
+example (p : IndexPair n) (v : Vector α n) :
+    Tuple.ofVector (p.vector_apply v) = p.apply (Tuple.ofVector v) := by
+  funext k
+  simp only [Tuple.ofVector, IndexPair.apply, IndexPair.toPerm, IndexPair.vector_apply]
+  grind only [= Equiv.Perm.one_apply, = Vector.get_eq_getElem, = Vector.getElem_swap,
+    = Equiv.swap_apply_def]
 
 @[simp, grind =]
 theorem IndexPair.apply_i_eq_min {p : IndexPair n} {t : Tuple α n} :
