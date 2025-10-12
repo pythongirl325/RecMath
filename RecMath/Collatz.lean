@@ -2,14 +2,15 @@ import Mathlib.Tactic
 import Mathlib.Logic.Function.Basic
 import Mathlib.Data.Nat.Basic
 import Mathlib.Data.Nat.ModEq
--- import Mathlib.CategoryTheory.Category.Basic
--- import Mathlib.Combinatorics.Quiver.Basic
+import Mathlib.CategoryTheory.Category.Basic
 import Mathlib.Dynamics.FixedPoints.Basic
 import Mathlib.Dynamics.PeriodicPts.Defs
 import Mathlib.Dynamics.Flow
 import Mathlib.Topology.Defs.Basic
 
 -- import Mathlib.LinearAlgeba.AffineSpace.AffineMap
+
+
 
 @[grind =]
 def step (n : Nat) : Nat :=
@@ -83,14 +84,13 @@ theorem stepT.even {n} (h : Even n) : stepT n = n / 2 := by
 theorem stepT.odd {n} (h : Odd n) : stepT n = (3 * n + 1) / 2 := by
   simp! only [stepT, h, Nat.not_even_iff_odd.mpr h, ↓reduceIte]
 
+@[grind =]
 theorem stepT.even_step {n} (h : Even n) : stepT n = step n := by
   simp! only [stepT, step, h, ↓reduceIte]
 
+@[grind =]
 theorem stepT.odd_step {n} (h : Odd n) : stepT n = step (step n) := by
-  -- grind? [= stepT, = step, = Nat.not_odd_iff_even, = Nat.even_mul, = Nat.even_add ]
-  have : Even (3*n + 1) := by
-    grind only [= Nat.not_odd_iff_even, = Nat.even_add, = Nat.even_iff, = Nat.odd_iff]
-  simp! only [stepT, step, Nat.not_even_iff_odd.mpr h, ↓reduceIte, this]
+  grind only [= Nat.even_iff, = Nat.odd_iff, stepT, step]
 
 
 theorem stepT.pattern1 {k m} : (1 <= k) -> (k <= m) -> stepT^[k] (2^m - 1) = 3^k * 2^(m-k) - 1 := by
@@ -109,13 +109,58 @@ theorem stepT.pattern1 {k m} : (1 <= k) -> (k <= m) -> stepT^[k] (2^m - 1) = 3^k
 
 end stepT
 
+
+
+abbrev IteratesTo {α : Type*} (F : α -> α) (a b : α) :=
+  { i : Nat // F^[i] a = b }
+
+/-- `X ~>[F] Y` is a natural number i such that F^[i] X = Y. -/
+notation:25 X " ~>[" F:25 "] " Y:0 => IteratesTo F X Y
+
+@[simp, grind =] def IteratesTo.id {α} {F : α -> α} (x : α) : x ~>[F] x :=
+  ⟨0, Function.iterate_zero_apply F x⟩
+
+@[grind]
+theorem IteratesTo.zero_eq {α} {X Y : α} {F} {i : X ~>[F] Y} : i.val = 0 -> X = Y := by
+  grind only [= Function.iterate_zero_apply]
+
+@[simp, grind =]
+def IteratesTo.comp {α} {F : α -> α} {X Y Z : α} (f : X ~>[F] Y) (g : Y ~>[F] Z) : X ~>[F] Z :=
+  ⟨g.val + f.val, by grind only [=_ Function.iterate_add_apply]⟩
+
+@[simp, grind =]
+def IteratesTo.iterate_n {α} {x : α} {F} (n : Nat) : x ~>[F] (F^[n] x) := ⟨n, rfl⟩
+
+-- @[grind]
+def IteratesToCat {α} (_ : α -> α) := α
+
+instance IteratesTo.category {α} (F : α -> α) : CategoryTheory.Category (IteratesToCat F) where
+  Hom := IteratesTo F
+  id := IteratesTo.id
+  comp := IteratesTo.comp
+  id_comp := by grind only [= id, = comp]
+  comp_id := by grind only [= id, = comp]
+  assoc := by grind only [= comp]
+
+abbrev step.iteratesTo := IteratesTo step
+abbrev stepT.iteratesTo := IteratesTo stepT
+
+
 section GoesTo
 
 variable {n m : Nat}
 
-def GoesTo (n m : Nat) : Prop :=
-  ∃i, step^[i] n = m
+def step.iteratesTo.even_path {n} : n * 2 ~>[step] n := ⟨1, by simp! [step]⟩
 
+
+
+
+
+def GoesTo (n m : Nat) : Prop := ∃i, step^[i] n = m
+
+theorem GoesTo.iff_nonempty_iteratesTo {n m : Nat} :
+    GoesTo n m <-> Nonempty (step.iteratesTo n m) := by
+  exact nonempty_subtype.symm
 
 infixr:50 " |=> " => GoesTo
 infixr:50 " ⤇ " => GoesTo
@@ -208,3 +253,134 @@ theorem GoesTo.odd_family2 : n ≡ 5 [MOD 6] -> ∀k, (n * 2^(2*k+1) - 1)/3 |=> 
 
 end GoesTo
 
+section Cats
+
+def stepT.iteratesTo.to_step {x y : Nat} (i : x ~>[stepT] y) : x ~>[step] y :=
+  match i with
+  | ⟨0, hi⟩ => ⟨0, hi⟩
+  | ⟨n + 1, hi⟩ =>
+    if heven : Even x then
+      IteratesTo.comp (IteratesTo.iterate_n 1) (to_step ⟨n, by
+        change stepT^[n] (step x) = y
+        grind only [= even_step, = Function.iterate_succ_apply]⟩)
+    else
+      have hodd := Nat.not_even_iff_odd.mp heven
+      IteratesTo.comp (IteratesTo.iterate_n 2) (to_step ⟨n, by
+        change stepT^[n] (step (step x)) = y
+        grind only [= odd_step, = Function.iterate_succ_apply]⟩)
+
+@[simp, grind =]
+theorem stepT.iteratesTo.to_step_zero {x y : Nat} {h : stepT^[0] x = y} : (to_step ⟨0, h⟩).val = 0 := by
+  simp! only [to_step]
+
+theorem stepT.iteratesTo.to_step_ge {x y : Nat} {i : x ~>[stepT] y} : i.val ≤ (to_step i).val := by
+  unfold to_step
+  rcases i with ⟨ni, hi⟩
+  induction ni generalizing x with
+  | zero => rfl
+  | succ ni hn =>
+    simp_all
+    rw [Function.iterate_succ_apply] at hi
+    split
+    · rename_i heven
+      rw [stepT.even_step heven] at hi
+      specialize hn hi
+      sorry
+    · have hodd : Odd x := by grind
+      rw [stepT.odd_step hodd] at hi
+      specialize hn hi
+      sorry
+
+#eval stepT.iteratesTo.to_step (⟨13, by decide⟩ : 9 ~>[stepT] 1)
+
+attribute [grind =] Function.iterate_zero Function.iterate_succ
+
+-- set_option maxHeartbeats 800000
+
+-- @[simp]
+-- theorem IteratesTo.coe_cast {α} {F} {X Y : α} {n : Nat} {h₁} :
+--     ↑(⟨n, h₁⟩ : X ~>[F] Y) = n := by grind only
+
+-- theorem IteratesTo.mk_coe : ⟨
+
+def stepT.iteratesTo.to_step.da_funky_functor : CategoryTheory.Functor (IteratesToCat stepT) (IteratesToCat step) where
+  obj := id
+  map {X Y : Nat} (f : X ~>[stepT] Y) : X ~>[step] Y := stepT.iteratesTo.to_step f
+  map_comp {X Y Z} (f : X ~>[stepT] Y) (g : Y ~>[stepT] Z) := by
+    rcases f with ⟨nf, hf⟩
+    rcases g with ⟨ng, hg⟩
+    simp [CategoryTheory.CategoryStruct.comp]
+    induction nf with
+    | zero => bound
+    | succ nf hnf =>
+      induction ng with
+      | zero => bound
+      | succ ng hng =>
+        ring_nf
+
+        sorry
+
+    -- split
+    -- · grind only
+    -- · split
+    --   · split
+    --     · split
+    --       · grind only
+    --       ·
+    --         rename_i hi h i_1 hi_1 i_2 n_1 hi_2 heq
+    --         subst hi hi_2
+    --         simp at heq
+    --         subst heq
+    --         grind [= Function.iterate_zero, IteratesTo.comp, IteratesTo.id, = Nat.even_iff,
+    --           cases eager Subtype, cases Or]
+    --     · split
+    --       · split
+    --         ·
+    --           rename_i hi_1 h_1 i_2 hi_2 heq
+    --           subst hi_2 hi_1
+    --           grind only [= Function.iterate_zero, IteratesTo.comp, IteratesTo.id, = Nat.even_iff,
+    --             cases eager Subtype, cases Or]
+    --         · simp
+
+
+    --           -- hint timeout
+
+    --           sorry
+    --       · split
+    --         ·
+    --           sorry
+    --           -- simp
+    --         · -- hint gave no good results
+
+    --           sorry
+    --   · split
+    --     · split
+    --       · grind only
+    --       ·
+    --         rename_i hi h i_1 hi_1 i_2 n_1 hi_2 heq
+    --         subst hi hi_2
+    --         simp_all
+    --         subst heq
+    --         simp_all only [cast_eq, zero_add]
+    --     · split
+    --       · split
+    --         ·
+    --           sorry
+    --         ·
+    --           sorry
+    --       · split
+    --         · rename_i hi_1 h_1 i_2 hi_2 heq
+    --           subst hi_1 hi_2
+    --           grind [= Function.iterate_zero, = Function.iterate_succ]
+    --         ·
+    --           sorry
+  map_id x := by
+    simp! only [id_eq, CategoryTheory.CategoryStruct.id, IteratesTo.id, stepT.iteratesTo.to_step,
+      cast_eq]
+
+
+
+
+
+
+end Cats
