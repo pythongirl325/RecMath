@@ -345,15 +345,44 @@ def extend_fin.equiv {n : Nat} : Fin n ≃ {x : Fin (n + 1) // x < n } where
   left_inv _ := rfl
   right_inv _ := rfl
 
+theorem finset_lt_exclusion (n: ℕ) (S: Finset ℕ) (ssh: S ⊂ Finset.range n) (x: ℕ) : (∀ s ∈ S, s < x) -> (S.card <= x) := by
+  intro h
+  induction n with
+  | zero =>
+    -- rw [Finset.range_zero] at ssh
+    grind only [= Finset.subset_iff, Finset.ssubset_iff_subset_ne, usr Finset.card_ne_zero_of_mem,
+      = Finset.mem_range]
+    -- Strict subset of a singleton is empty
+    -- So S.card is 0
+    -- All natural numbers are greater than or equal to zero
+  | succ n hn =>
+    -- First case 1 ∉ S
+      -- Let T = {s ∈ S, s - 1}
+      -- Then, T < Finset.range (n - 1)
+      -- For any t ∈ T,
+        -- There exists an s ∈ S such that t = s - 1, so t < x - 1
+      -- Then applying the inductive hypothesis, T.card <= x - 1, so S.card <= x
+
+    -- Second case, 1 ∈ S,
+      -- Let T = {s ∈ S / {1}, s - 1}
+      -- Then, T < Finset.range (n - 1)
+      -- For any t ∈ T,
+        -- There exists an s ∈ S such that t = s - 1, so t < x - 1
+      -- Then applying the inductive hypothesis, T.card = S.card - 1 <= x - 1, so S.card <= x
+    sorry
+
 theorem monotone_perm_eq_one {n : Nat} {p : Equiv.Perm (Fin n)} (mono : Monotone p) : p = 1 := by
   -- unfold Monotone at mono
   -- Induct and try to transfer proofs using MonotoneOn then expand the set
   induction n with
   | zero => exact Subsingleton.allEq p 1
   | succ n h =>
-    specialize @h 1
-    change p = Equiv.refl _
-    rw [<- Equiv.Perm.extendDomain_refl extend_fin.equiv]
+    ext i
+    -- specialize @h 1
+    simp? [Equiv.Perm.coe_one]
+    have p_n_sub_one_eq_n_sub_one : p (Fin.mk (n - 1) (by omega)) = n - 1 := by sorry
+    let q (x: (Fin n)): Fin (n + 1) := p (Fin.mk x (by omega))
+
     sorry
 
 -- The basic idea that if a comparison network can sort all permuataions, then it can sort anything
@@ -404,11 +433,24 @@ theorem ComparisonNetwork.zero_one_principle (net : ComparisonNetwork n) :
   · order
   simp [<- this]
 
-  have : f (net.apply a j) ≠ f (net.apply a i) := by
+  set b := net.apply a
+
+  have : f (b j) ≠ f (b i) := by
     unfold f
     simp
     push_neg
     simp [f, Bool.le_iff_imp] at fswap
+    rw [Classical.or_iff_not_imp_left]
+    intro h
+    push_neg at h
+
+    -- let b := net.apply a
+    have h1 (a b : Prop) : a ∧ b <-> ¬(¬a ∨ ¬b) := by tauto
+    have h2 (a b : Prop) : ¬(¬a ∨ ¬b) <-> ¬(a -> ¬b) := by tauto
+    rw [h1, h2]
+
+
+
     sorry
 
   order
